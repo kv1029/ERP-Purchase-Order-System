@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order Manager | Enterprise PO System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* Base theme and glassmorphism setup */
+        :root {
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-bg: rgba(20, 25, 40, 0.6);
+        }
+        
+        body {
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border-radius: 1.5rem;
+        }
+
+        /* Custom input styling to match the glass theme */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #60a5fa;
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.2);
+            outline: none;
+        }
+        .glass-input option {
+            background-color: #1e293b;
+            color: white;
+        }
+
+        /* 3D button click effect */
+        .btn-3d {
+            transition: all 0.15s ease;
+            box-shadow: 0 8px 0 rgba(0,0,0,0.2), 0 15px 20px rgba(0,0,0,0.4);
+            transform: translateY(0);
+        }
+        .btn-3d:active {
+            box-shadow: 0 2px 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.4);
+            transform: translateY(6px);
+        }
+
+        .float-anim { animation: float 6s ease-in-out infinite; }
+        @keyframes float {
+            0% { transform: translateY(0px) rotateX(0deg); }
+            50% { transform: translateY(-15px) rotateX(2deg); }
+            100% { transform: translateY(0px) rotateX(0deg); }
+        }
+
+        /* Utilities for the login card 3D tilt effect */
+        .preserve-3d { transform-style: preserve-3d; }
+        .translate-z-50 { transform: translateZ(50px); }
+        .translate-z-30 { transform: translateZ(30px); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        /* Handles SPA view switching */
+        .view-section { display: none !important; opacity: 0; transition: opacity 0.4s ease; }
+        .view-section.active { display: block !important; opacity: 1; }
+    </style>
+</head>
+<body class="font-sans antialiased overflow-x-hidden selection:bg-blue-500 selection:text-white">
+
+    <nav class="sticky top-0 z-50 glass-panel !rounded-none !border-t-0 !border-l-0 !border-r-0 border-b border-white/10 px-8 py-4 mb-8">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('dashboard')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-400 flex items-center justify-center text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                    <i class="fa-solid fa-bolt text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Purchase Order Manager</h2>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <div id="auth-container"></div>
+
+                <div id="user-profile" class="hidden items-center gap-4 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                    <div class="relative">
+                        <i class="fa-solid fa-circle-user text-2xl text-slate-300"></i>
+                        <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-[#0f172a]"></div>
+                    </div>
+                    <span id="user-name-display" class="font-bold text-sm tracking-wide"></span>
+                    <button onclick="logout()" class="text-xs text-rose-400 hover:text-rose-300 font-bold ml-2 pl-4 border-l border-white/10 uppercase tracking-widest transition-colors">Exit</button>
+                </div>
+
+                <div id="nav-actions" class="hidden gap-3">
+                    <button onclick="switchView('dashboard')" class="text-sm font-bold text-slate-300 hover:text-white transition-colors px-2">Dashboard</button>
+                    <button onclick="switchView('create')" class="btn-3d bg-gradient-to-r from-blue-600 to-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> New Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 pb-20 relative">
+
+        <section id="view-login" class="view-section active relative">
+            <div id="spotlight" class="pointer-events-none fixed inset-0 z-0 opacity-0 transition-opacity duration-300 mix-blend-screen" style="background: radial-gradient(800px circle at var(--x, 50%) var(--y, 50%), rgba(59, 130, 246, 0.15), rgba(168, 85, 247, 0.1), transparent 50%);"></div>
+            
+            <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div class="absolute top-20 left-[20%] w-2 h-2 bg-blue-400 rounded-full shadow-[0_0_15px_#60a5fa] animate-ping opacity-70"></div>
+                <div class="absolute bottom-40 right-[15%] w-3 h-3 bg-fuchsia-400 rounded-full shadow-[0_0_20px_#e879f9] animate-[ping_3s_ease-in-out_infinite] opacity-60"></div>
+                <div class="absolute top-[40%] right-[30%] w-1.5 h-1.5 bg-indigo-400 rounded-full shadow-[0_0_10px_#818cf8] animate-[ping_4s_ease-in-out_infinite] opacity-50"></div>
+            </div>
+
+            <div class="flex items-center justify-center pt-10 relative z-10 perspective-[2000px]">
+                <div id="login-card" class="glass-panel max-w-4xl w-full p-0 flex flex-col md:flex-row shadow-[0_0_50px_rgba(0,0,0,0.5)] relative transition-transform duration-200 ease-out preserve-3d">
+                    
+                    <div class="absolute -top-32 -left-32 w-64 h-64 bg-blue-600/20 rounded-full mix-blend-screen filter blur-[100px] pointer-events-none"></div>
+                    
+                    <div class="md:w-1/2 p-12 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/10 bg-gradient-to-br from-white/5 to-transparent relative preserve-3d">
+                        <div class="translate-z-50">
+                            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-8 shadow-[0_10px_30px_rgba(59,130,246,0.5)] border border-blue-400/30">
+                                <i class="fa-solid fa-fingerprint text-4xl text-white"></i>
+                            </div>
+                            <h1 class="text-5xl font-extrabold mb-4 leading-tight tracking-tight drop-shadow-xl text-white">Enterprise<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Procurement</span></h1>
+                            <p class="text-blue-100/70 mb-10 leading-relaxed font-medium">Ignite the secure ledger. Authenticate to establish a multi-tenant connection and access Gen-AI insights.</p>
+                        </div>
+                        
+                        <div class="translate-z-30 relative group">
+                            <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                            <div class="relative bg-black/50 p-1 rounded-full border border-white/10 flex items-center justify-center backdrop-blur-md overflow-hidden">
+                                <div id="g_id_onload" data-client_id="206054774463-8o4078slgsa4etoee2uh0trot65ncdmu.apps.googleusercontent.com" data-context="signin" data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+                                <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="filled_black" data-text="continue_with" data-size="large" data-logo_alignment="center"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:w-1/2 bg-slate-900/60 p-12 flex flex-col justify-center relative preserve-3d backdrop-blur-xl">
+                        <div class="translate-z-30">
+                            <h3 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-8 border-b border-white/10 pb-4 flex items-center gap-2"><i class="fa-solid fa-server text-indigo-400"></i> System Capabilities</h3>
+                            <ul class="space-y-8">
+                                <li class="flex items-start gap-5 hover:translate-x-2 transition-transform duration-300">
+                                    <div class="mt-1 w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]"><i class="fa-solid fa-lock text-lg"></i></div>
+                                    <div><h4 class="font-bold text-white text-lg tracking-wide">Zero-Trust Security</h4><p class="text-sm text-slate-400 mt-1 leading-relaxed">Cryptographically secured OAuth 2.0 with isolated data tenant buckets.</p></div>
+                                </li>
+                                <li class="flex items-start gap-5 hover:translate-x-2 transition-transform duration-300">
+                                    <div class="mt-1 w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]"><i class="fa-solid fa-wand-magic-sparkles text-lg"></i></div>
+                                    <div><h4 class="font-bold text-white text-lg tracking-wide">Neural Network AI</h4><p class="text-sm text-slate-400 mt-1 leading-relaxed">Live connection to Gen-AI models for instant product marketing synthesis.</p></div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-dashboard" class="view-section">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass-panel p-6 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i class="fa-solid fa-file-invoice text-6xl"></i></div>
+                    <h3 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Total Orders</h3>
+                    <p id="stat-total-orders" class="text-4xl font-extrabold text-white">0</p>
+                </div>
+                <div class="glass-panel p-6 relative overflow-hidden group border-b-4 border-b-emerald-400">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i class="fa-solid fa-dollar-sign text-6xl"></i></div>
+                    <h3 class="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-2">Total Value (USD)</h3>
+                    <p id="stat-total-value" class="text-4xl font-extrabold text-white">$0.00</p>
+                </div>
+                <div class="glass-panel p-6 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform"><i class="fa-solid fa-building text-6xl"></i></div>
+                    <h3 class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Active Vendors</h3>
+                    <p id="stat-vendors" class="text-4xl font-extrabold text-white">0</p>
+                </div>
+            </div>
+
+            <div class="glass-panel overflow-hidden">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center bg-black/20">
+                    <h2 class="text-xl font-bold flex items-center gap-3"><i class="fa-solid fa-list-check text-blue-400"></i> Active Purchase Orders</h2>
+                    <button onclick="loadDashboard()" class="text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-2"><i class="fa-solid fa-rotate-right"></i> Sync</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-black/40 border-b border-white/10 text-xs uppercase tracking-wider text-slate-400 font-bold">
+                            <tr>
+                                <th class="p-5">Order ID</th>
+                                <th class="p-5">Supplier</th>
+                                <th class="p-5">Total Amount</th>
+                                <th class="p-5">Status</th>
+                                <th class="p-5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardTableBody" class="divide-y divide-white/5">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-create" class="view-section">
+            
+            <div class="relative w-full h-40 md:h-48 mb-8 rounded-[2rem] overflow-hidden border border-white/10 bg-slate-900/50 shadow-2xl flex items-center px-6 md:px-12">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-indigo-900/40 to-purple-900/20"></div>
+                <div class="absolute -top-10 left-[20%] w-40 h-40 bg-blue-500 rounded-full mix-blend-screen filter blur-[60px] animate-[float_6s_ease-in-out_infinite]"></div>
+                <div class="absolute -bottom-10 right-[20%] w-48 h-48 bg-purple-500 rounded-full mix-blend-screen filter blur-[70px] animate-[float_8s_ease-in-out_infinite_reverse]"></div>
+                <div class="absolute inset-0 opacity-[0.15]" style="background-image: linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+                <div class="relative z-10 flex items-center gap-6 w-full justify-between">
+                    <div class="flex items-center gap-6">
+                        <button onclick="switchView('dashboard')" class="w-12 h-12 rounded-full bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center hover:bg-white/20 transition-all hover:scale-110 shadow-lg group">
+                            <i class="fa-solid fa-arrow-left text-slate-300 group-hover:text-white transition-colors"></i>
+                        </button>
+                        <div>
+                            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 drop-shadow-sm">Generate New PO</h1>
+                            <p class="text-blue-200/80 text-sm md:text-base mt-2 font-medium tracking-wide">Initialize a secure smart contract with verified suppliers.</p>
+                        </div>
+                    </div>
+                    <div class="hidden md:flex items-center justify-center w-24 h-24 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-[0_0_30px_rgba(59,130,246,0.2)] float-anim">
+                        <i class="fa-solid fa-file-contract text-4xl text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="flex-grow space-y-8">
+                    <div class="glass-panel p-8 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                        
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">1. Supplier Designation</h3>
+                            <button onclick="openAddVendorModal()" class="text-blue-400 hover:text-blue-300 text-xs font-bold tracking-wider flex items-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> NEW SUPPLIER</button>
+                        </div>
+                        
+                        <div class="relative">
+                            <select id="vendor" class="w-full p-4 rounded-xl glass-input appearance-none cursor-pointer">
+                                <option value="" disabled selected>Select a verified supplier...</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-8">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6 flex justify-between items-center">
+                            <span>2. Hardware Allocation</span>
+                            <div class="flex gap-4">
+                                <button onclick="openAddProductModal()" class="text-purple-400 hover:text-purple-300 text-xs font-bold tracking-wider transition-colors flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> NEW HARDWARE</button>
+                                <button onclick="addRow()" class="text-blue-400 hover:text-blue-300 text-xs font-bold tracking-wider transition-colors flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> ADD ROW</button>
+                            </div>
+                        </h3>
+                        <div class="space-y-4" id="lineItemsContainer">
+                            </div>
+                    </div>
+                </div>
+
+                <div class="lg:w-96 flex-shrink-0">
+                    <div class="glass-panel p-8 sticky top-32 border-t-4 border-t-indigo-500 bg-gradient-to-b from-white/5 to-transparent">
+                        <h3 class="text-lg font-bold mb-6 flex items-center gap-3"><i class="fa-solid fa-calculator text-indigo-400"></i> Financial Summary</h3>
+                        
+                        <div class="space-y-4 mb-8">
+                            <div class="flex justify-between text-slate-300 text-sm"><span>Subtotal</span><span id="subtotalDisplay" class="font-mono font-bold text-white">$0.00</span></div>
+                            <div class="flex justify-between text-slate-300 text-sm"><span>Tax (5%)</span><span id="taxDisplay" class="font-mono font-bold text-white">$0.00</span></div>
+                            <div class="h-px bg-white/10 w-full my-4"></div>
+                            <div class="flex justify-between items-end">
+                                <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">Grand Total</span>
+                                <span id="displayTotal" class="text-4xl font-extrabold text-emerald-400 tracking-tight drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">$0.00</span>
+                            </div>
+                        </div>
+
+                        <button id="submitBtn" onclick="submitPO()" class="btn-3d w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold py-4 rounded-xl uppercase tracking-wider text-sm">
+                            Authorize Order <i class="fa-solid fa-fingerprint ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal-root"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let globalProducts = [];
+        let globalVendors = [];
+
+        // Track cursor coordinates for the 3D card tilt effect on the login screen
+        document.addEventListener('mousemove', (e) => {
+            const loginView = document.getElementById('view-login');
+            if(loginView && loginView.classList.contains('active')) {
+                const card = document.getElementById('login-card');
+                const spotlight = document.getElementById('spotlight');
+                if(!card || !spotlight) return;
+
+                spotlight.style.setProperty('--x', `${e.clientX}px`);
+                spotlight.style.setProperty('--y', `${e.clientY}px`);
+                spotlight.style.opacity = '1';
+
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                
+                const rotateX = -(y / rect.height) * 12;
+                const rotateY = (x / rect.width) * 12;
+
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            }
+        });
+
+        // Reset the 3D card position when the mouse leaves the window
+        document.addEventListener('mouseleave', () => {
+            const card = document.getElementById('login-card');
+            if(card) {
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+                document.getElementById('spotlight').style.opacity = '0';
+            }
+        });
+
+        // Basic router to switch between views and enforce auth limits
+        function switchView(viewId) {
+            if ((viewId === 'dashboard' || viewId === 'create') && !localStorage.getItem('po_jwt_token')) return switchView('login');
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            window.scrollTo(0, 0);
+            if (viewId === 'dashboard') loadDashboard();
+            if (viewId === 'create') initCreateView();
+        }
+
+        // Google Sign-In callback to verify token with our own backend
+        window.handleCredentialResponse = async (response) => {
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            try {
+                const res = await fetch(`${API_BASE}/auth/google`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential, email: payload.email, name: payload.name })
+                });
+                const data = await res.json();
+                if (data.access_token) {
+                    localStorage.setItem('po_jwt_token', data.access_token);
+                    localStorage.setItem('po_user_name', payload.name);
+                    updateAuthUI();
+                    switchView('dashboard');
+                }
+            } catch (err) { console.error("Login Error:", err); }
+        };
+
+        // Toggle nav items and auth button visibility based on login state
+        function updateAuthUI() {
+            const token = localStorage.getItem('po_jwt_token');
+            const userName = localStorage.getItem('po_user_name');
+            const gAuthArea = document.getElementById('auth-container');
+            
+            if (token && userName) {
+                document.getElementById('user-profile').classList.remove('hidden');
+                document.getElementById('user-profile').classList.add('flex');
+                document.getElementById('nav-actions').classList.remove('hidden');
+                document.getElementById('nav-actions').classList.add('flex');
+                document.getElementById('user-name-display').innerText = userName;
+                if(gAuthArea) gAuthArea.classList.add('hidden'); 
+            } else {
+                document.getElementById('user-profile').classList.add('hidden');
+                document.getElementById('user-profile').classList.remove('flex');
+                document.getElementById('nav-actions').classList.add('hidden');
+                document.getElementById('nav-actions').classList.remove('flex');
+                if(gAuthArea) gAuthArea.classList.remove('hidden');
+            }
+        }
+
+        // Clear local storage and bump user back to login
+        function logout() {
+            localStorage.removeItem('po_jwt_token');
+            localStorage.removeItem('po_user_name');
+            updateAuthUI();
+            switchView('login');
+        }
+
+        // Fetch POs and Vendor list to populate the dashboard table
+        async function loadDashboard() {
+            const tableBody = document.getElementById('dashboardTableBody');
+            const token = localStorage.getItem('po_jwt_token');
+            tableBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500 mb-4"></i></td></tr>`;
+
+            try {
+                const [poRes, vendorRes] = await Promise.all([
+                    fetch(`${API_BASE}/po`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/vendors`)
+                ]);
+
+                if (poRes.status === 401) {
+                    showCustomModal('error', 'Session Expired', 'Your secure session has expired. Re-authentication required.');
+                    logout(); return;
+                }
+                if (!poRes.ok) throw new Error("Database sync failed.");
+
+                const orders = await poRes.json();
+                const vendors = await vendorRes.json();
+                globalVendors = vendors;
+                const vendorMap = {}; vendors.forEach(v => vendorMap[v.id] = v.name);
+
+                document.getElementById('stat-total-orders').innerText = orders.length;
+                document.getElementById('stat-vendors').innerText = vendors.length;
+                
+                let totalValue = 0; tableBody.innerHTML = '';
+
+                // Handle empty state explicitly to clear out old data totals
+                if (orders.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-500"><i class="fa-solid fa-box-open text-2xl text-slate-600 mb-3 block"></i>No orders found.</td></tr>`;
+                    document.getElementById('stat-total-value').innerText = `$0.00`;
+                    return;
+                }
+
+                orders.forEach(order => {
+                    totalValue += order.total;
+                    const vName = vendorMap[order.vendor_id] || "Unknown";
+                    const isDelivered = order.status === 'DELIVERED';
+                    const badgeClass = isDelivered ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+                    const badge = `<span class="px-3 py-1.5 ${badgeClass} border rounded-md text-xs font-bold tracking-widest uppercase shadow-[0_0_10px_rgba(0,0,0,0.2)]">${order.status}</span>`;
+
+                    const actionBtns = `
+                        <div class="flex items-center justify-end gap-3">
+                            ${!isDelivered ? `<button onclick="updatePO(${order.id}, 'DELIVERED')" class="text-xs font-bold text-emerald-400 hover:text-white hover:bg-emerald-500 px-3 py-1.5 rounded-lg border border-emerald-500/50 transition-all"><i class="fa-solid fa-check mr-1"></i> Receive</button>` : ''}
+                            <button onclick="deletePO(${order.id})" class="text-rose-400 hover:text-white hover:bg-rose-500 p-2 rounded-lg transition-all" title="Purge Record"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    `;
+
+                    tableBody.innerHTML += `
+                        <tr class="group hover:bg-white/5 border-b border-white/5 last:border-0">
+                            <td class="p-5 font-mono text-sm font-bold text-slate-300">#PO-${String(order.id).padStart(4, '0')}</td>
+                            <td class="p-5 text-sm font-bold text-white">${vName}</td>
+                            <td class="p-5 font-mono text-emerald-400 font-bold">$${order.total.toFixed(2)}</td>
+                            <td class="p-5">${badge}</td>
+                            <td class="p-5">${actionBtns}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('stat-total-value').innerText = `$${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            } catch (err) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl"><i class="fa-solid fa-triangle-exclamation mr-2"></i> ${err.message}</td></tr>`;
+            }
+        }
+
+        // Mark PO as delivered
+        async function updatePO(id, status) {
+            try {
+                const res = await fetch(`${API_BASE}/po/${id}/status?new_status=${status}`, { 
+                    method: 'PATCH', 
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('po_jwt_token')}` } 
+                });
+                
+                if (!res.ok) {
+                    showCustomModal('error', 'Update Failed', `Backend rejected the update (Status ${res.status}).`);
+                    return;
+                }
+                loadDashboard();
+            } catch(e) { console.error(e); }
+        }
+
+        // Delete a PO from the system entirely
+        async function deletePO(id) {
+            if(confirm("DANGER: Confirm cryptographic purge of this Purchase Order?")) {
+                try {
+                    const res = await fetch(`${API_BASE}/po/${id}`, { 
+                        method: 'DELETE', 
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('po_jwt_token')}` } 
+                    });
+                    
+                    if (!res.ok) {
+                        showCustomModal('error', 'Delete Failed', `Backend rejected the delete (Status ${res.status}).`);
+                        return;
+                    }
+                    loadDashboard();
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        // Pre-load data for the create PO form
+        async function initCreateView() {
+            document.getElementById('lineItemsContainer').innerHTML = ''; 
+            try {
+                if(globalProducts.length === 0 || globalVendors.length === 0) {
+                    const [vRes, pRes] = await Promise.all([fetch(`${API_BASE}/vendors`), fetch(`${API_BASE}/products`)]);
+                    globalVendors = await vRes.json();
+                    globalProducts = await pRes.json();
+                }
+
+                const vSelect = document.getElementById('vendor');
+                vSelect.innerHTML = '<option value="" disabled selected>Select a verified supplier...</option>';
+                globalVendors.forEach(v => vSelect.add(new Option(v.name, v.id)));
+                addRow();
+            } catch (e) { console.error(e); }
+        }
+
+        // Add a new product selection row to the PO form
+        function addRow() {
+            const container = document.getElementById('lineItemsContainer');
+            const row = document.createElement('div');
+            row.className = "flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 group animate-[fadeIn_0.3s_ease]";
+
+            const pOptions = '<option value="" disabled selected>Select hardware...</option>' + 
+                globalProducts.map(p => `<option value="${p.id}">${p.name} — $${p.price}</option>`).join('');
+
+            row.innerHTML = `
+                <div class="flex-grow relative">
+                    <select class="item-select w-full p-3 rounded-lg glass-input appearance-none text-sm" onchange="calcTotals()">${pOptions}</select>
+                    <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none"></i>
+                </div>
+                <button title="Ask Gen AI" class="w-12 h-[46px] flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 border border-purple-500/30 rounded-lg text-purple-400 hover:text-white hover:from-purple-500 hover:to-fuchsia-500 transition-all shadow-[0_0_10px_rgba(168,85,247,0.2)] flex items-center justify-center" onclick="genAI(this)">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
+                <div class="w-24 flex-shrink-0 relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-bold">QTY</span>
+                    <input type="number" class="item-qty w-full p-3 pl-10 rounded-lg glass-input text-sm font-mono font-bold" value="1" min="1" onchange="calcTotals()" onkeyup="calcTotals()">
+                </div>
+                <button class="w-12 h-[46px] flex-shrink-0 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg transition-colors flex items-center justify-center" onclick="this.parentElement.remove(); calcTotals();">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            container.appendChild(row);
+            calcTotals();
+        }
+
+        // Tally up items and recalculate summary widget
+        function calcTotals() {
+            const rows = document.querySelectorAll('#lineItemsContainer > div');
+            let sub = 0;
+            rows.forEach(r => {
+                const sel = r.querySelector('.item-select');
+                const qty = r.querySelector('.item-qty');
+                if (sel && qty && sel.value) {
+                    const p = globalProducts.find(x => x.id === parseInt(sel.value));
+                    if (p) sub += p.price * (parseInt(qty.value) || 0);
+                }
+            });
+            const tax = sub * 0.05;
+            document.getElementById('subtotalDisplay').innerText = `$${sub.toFixed(2)}`;
+            document.getElementById('taxDisplay').innerText = `$${tax.toFixed(2)}`;
+            document.getElementById('displayTotal').innerText = `$${(sub + tax).toFixed(2)}`;
+        }
+
+        // Post the final PO form back to the server
+        async function submitPO() {
+            const btn = document.getElementById('submitBtn');
+            const vId = document.getElementById('vendor').value;
+            const items = Array.from(document.querySelectorAll('#lineItemsContainer > div')).map(r => ({
+                product_id: parseInt(r.querySelector('.item-select').value),
+                qty: parseInt(r.querySelector('.item-qty').value)
+            })).filter(i => !isNaN(i.product_id));
+
+            if (!vId || items.length === 0) return showCustomModal('error', 'Validation Failed', 'Supplier and valid hardware allocations are required.');
+
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Authorizing...';
+            try {
+                const res = await fetch(`${API_BASE}/po`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('po_jwt_token')}` },
+                    body: JSON.stringify({ vendor_id: parseInt(vId), items })
+                });
+                if (res.ok) {
+                    showCustomModal('success', 'Contract Executed', 'Purchase order securely written to the database.');
+                    setTimeout(() => switchView('dashboard'), 2000);
+                } else throw new Error();
+            } catch (e) { showCustomModal('error', 'System Error', 'Failed to communicate with API.'); } 
+            finally { btn.innerHTML = 'Authorize Order <i class="fa-solid fa-fingerprint ml-2"></i>'; }
+        }
+
+        // Inject modal for adding new vendor
+        function openAddVendorModal() {
+            document.getElementById('modal-root').innerHTML = `
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center animate-[fadeIn_0.2s_ease-out]">
+                    <div class="glass-panel p-8 max-w-sm w-full mx-4 flex flex-col items-center transform scale-95 animate-[popIn_0.3s_ease-out_forwards]">
+                        <div class="w-16 h-16 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500 flex items-center justify-center text-3xl mb-4 shadow-[0_0_20px_rgba(59,130,246,0.4)]"><i class="fa-solid fa-building"></i></div>
+                        <h3 class="text-xl font-bold text-white mb-6">Add New Supplier</h3>
+                        <input type="text" id="newVendorName" placeholder="Supplier Name" class="w-full p-3 rounded-lg glass-input mb-4 text-sm">
+                        <input type="email" id="newVendorContact" placeholder="Contact Email" class="w-full p-3 rounded-lg glass-input mb-6 text-sm">
+                        <div class="flex gap-3 w-full">
+                            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10">Cancel</button>
+                            <button onclick="submitNewVendor()" class="flex-1 py-3 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white transition-colors">Save Supplier</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function submitNewVendor() {
+            const name = document.getElementById('newVendorName').value;
+            const contact = document.getElementById('newVendorContact').value;
+            if(!name || !contact) return alert("Please fill both fields!");
+
+            try {
+                const res = await fetch(`${API_BASE}/vendors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, contact, rating: 5.0 })
+                });
+                if(res.ok) {
+                    document.getElementById('modal-root').innerHTML = '';
+                    showCustomModal('success', 'Supplier Added', 'New supplier verified and added to ledger.');
+                    globalVendors = []; 
+                    initCreateView();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Inject modal for adding new hardware product
+        function openAddProductModal() {
+            document.getElementById('modal-root').innerHTML = `
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center animate-[fadeIn_0.2s_ease-out]">
+                    <div class="glass-panel p-8 max-w-sm w-full mx-4 flex flex-col items-center transform scale-95 animate-[popIn_0.3s_ease-out_forwards]">
+                        <div class="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500 flex items-center justify-center text-3xl mb-4 shadow-[0_0_20px_rgba(168,85,247,0.4)]"><i class="fa-solid fa-microchip"></i></div>
+                        <h3 class="text-xl font-bold text-white mb-6">Add Hardware</h3>
+                        <input type="text" id="newProdName" placeholder="Hardware Name" class="w-full p-3 rounded-lg glass-input mb-4 text-sm">
+                        <input type="text" id="newProdSku" placeholder="SKU (e.g. CPU-123)" class="w-full p-3 rounded-lg glass-input mb-4 text-sm">
+                        <input type="number" id="newProdPrice" placeholder="Price ($)" class="w-full p-3 rounded-lg glass-input mb-6 text-sm">
+                        <div class="flex gap-3 w-full">
+                            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10">Cancel</button>
+                            <button onclick="submitNewProduct()" class="flex-1 py-3 rounded-xl font-bold text-sm bg-purple-600 hover:bg-purple-500 text-white transition-colors">Save Hardware</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function submitNewProduct() {
+            const name = document.getElementById('newProdName').value;
+            const sku = document.getElementById('newProdSku').value || "GEN-001";
+            const price = parseFloat(document.getElementById('newProdPrice').value);
+            if(!name || !price) return alert("Please fill name and price!");
+
+            try {
+                const res = await fetch(`${API_BASE}/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, sku, price, stock: 100 })
+                });
+                if(res.ok) {
+                    document.getElementById('modal-root').innerHTML = '';
+                    showCustomModal('success', 'Hardware Added', 'New hardware verified and added to inventory.');
+                    globalProducts = []; 
+                    initCreateView();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Fire off request to fetch AI description for selected item in line row
+        async function genAI(btn) {
+            const pId = btn.previousElementSibling.firstElementChild.value;
+            if(!pId) return showCustomModal('error', 'Error', 'Select a product first.');
+            
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch(`${API_BASE}/products/${pId}/auto-description`);
+                const data = await res.json();
+                showCustomModal('ai', 'AI Insight Generated', data.description);
+            } catch (e) { showCustomModal('error', 'AI Offline', 'Neural link failed.'); }
+            finally { btn.innerHTML = orig; }
+        }
+
+        // Reusable generic modal for system notifications
+        function showCustomModal(type, title, message) {
+            const root = document.getElementById('modal-root');
+            const icons = {
+                success: '<div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500 flex items-center justify-center text-3xl mb-4 shadow-[0_0_20px_rgba(52,211,153,0.4)]"><i class="fa-solid fa-check"></i></div>',
+                error: '<div class="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500 flex items-center justify-center text-3xl mb-4 shadow-[0_0_20px_rgba(244,63,94,0.4)]"><i class="fa-solid fa-triangle-exclamation"></i></div>',
+                ai: '<div class="w-16 h-16 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500 flex items-center justify-center text-3xl mb-4 shadow-[0_0_30px_rgba(168,85,247,0.6)]"><i class="fa-solid fa-brain"></i></div>'
+            };
+
+            const html = `
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center animate-[fadeIn_0.2s_ease-out]">
+                    <div class="glass-panel p-8 max-w-sm w-full mx-4 flex flex-col items-center text-center transform scale-95 animate-[popIn_0.3s_ease-out_forwards]">
+                        ${icons[type]}
+                        <h3 class="text-xl font-bold text-white mb-2">${title}</h3>
+                        ${type === 'ai' ? `<div class="bg-black/30 p-4 rounded-xl text-slate-300 italic text-sm mb-6 border border-white/5 leading-relaxed">"${message}"</div>` 
+                                        : `<p class="text-slate-400 mb-6 text-sm">${message}</p>`}
+                        <button onclick="this.closest('.fixed').remove()" class="w-full py-3 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10">Acknowledge</button>
+                    </div>
+                </div>
+                <style>
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+                </style>
+            `;
+            root.innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateAuthUI();
+            const token = localStorage.getItem('po_jwt_token');
+            switchView(token ? 'dashboard' : 'login');
+        });
+    </script>
+</body>
+</html>
